@@ -1,0 +1,7 @@
+project_id = "wsphhlzlnhqmtvkdrnjy"
+
+[functions.processFootage]
+verify_jwt = false
+
+[functions.receiveReIdResults]
+verify_jwt = false
