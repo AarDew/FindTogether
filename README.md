@@ -1,260 +1,207 @@
-# FindTogether Backend API
+# FindTogether
 
-A Node.js + Express backend with MongoDB integration for the FindTogether application.
+FindTogether is a missing-person support web application for publishing cases, reporting sightings, and reviewing uploaded footage and potential matches. The current repository contains a React frontend backed by Supabase; it does not contain a Node.js/Express or MongoDB server.
 
 ## Features
 
-- **Authentication & Authorization**: JWT-based authentication with role-based access control
-- **User Management**: Complete CRUD operations for users
-- **Sighting Reports**: Geospatial queries for location-based sighting reports
-- **Case Management**: Investigation case tracking and management
-- **File Upload**: Support for images and videos
-- **Security**: Rate limiting, CORS, helmet, and input validation
-- **Error Handling**: Comprehensive error handling middleware
-- **Background Jobs**: Inngest integration for asynchronous task processing
+- **Missing-person cases**: Browse active cases and submit a case with contact information, last-seen details, a description, and an optional photo.
+- **Sighting reports**: Submit a sighting report with location, date, description, and reporter contact details.
+- **Authentication**: Register and sign in through Supabase Auth.
+- **User dashboard**: View a user's submitted cases and footage uploads, with case and footage updates reflected through Supabase Realtime subscriptions.
+- **Footage uploads**: Upload video files to Supabase Storage and create footage-upload records associated with a case.
+- **Admin review pages**: Review match records and footage; review person re-identification results on a separate admin page.
+- **AI/re-identification prototypes**: Includes a browser face-detection service, a mock footage-processing flow, and a Supabase Edge Function interface for results from an external person re-identification pipeline.
+- **Legal help**: Includes a legal-help information page.
 
 ## Tech Stack
 
-- **Runtime**: Node.js
-- **Framework**: Express.js
-- **Database**: MongoDB with Mongoose ODM
-- **Authentication**: JWT (JSON Web Tokens)
-- **Security**: bcryptjs, helmet, and cors
-- **Validation**: express-validator
-- **File Upload**: multer
-- **Background Jobs**: Inngest
+- **Frontend**: React 18, TypeScript, and Vite 5
+- **UI**: Tailwind CSS, shadcn-style components built on Radix UI, and Lucide icons
+- **Routing and data fetching**: React Router and TanStack Query
+- **Backend services**: Supabase Auth, PostgreSQL, Row Level Security (RLS), Realtime, Storage, and Edge Functions
+- **Browser AI prototype**: Transformers.js with WebGPU preference and CPU fallback
+- **External processing interface**: A Supabase Edge Function accepts results from an external Python person re-identification pipeline; that Python service is not included in this repository
 
 ## Project Structure
 
 ```text
-backend/
-├── config/
-│   └── database.js          # MongoDB connection configuration
-├── controllers/
-│   ├── authController.js     # Authentication logic
-│   ├── userController.js     # User management
-│   ├── sightingController.js # Sighting reports
-│   └── caseController.js     # Case management
-├── middleware/
-│   ├── auth.js              # JWT authentication middleware
-│   ├── errorHandler.js      # Global error handling
-│   └── inngest.js           # Inngest middleware
-├── models/
-│   ├── User.js              # User schema
-│   ├── Sighting.js          # Sighting report schema
-│   └── Case.js              # Case schema
-├── routes/
-│   ├── auth.js              # Authentication routes
-│   ├── users.js             # User routes
-│   ├── sightings.js         # Sighting routes
-│   └── cases.js             # Case routes
-├── utils/
-│   └── inngest.js           # Inngest utility functions
-├── inngest/
-│   └── index.js             # Inngest functions and client
-├── server.js                # Main server file
-├── package.json             # Dependencies and scripts
-└── env.example              # Environment variables template
+FindTogether/
+├── public/
+│   └── models/                  # Model download notes and placeholder folders
+├── src/
+│   ├── components/              # Shared app and UI components
+│   ├── hooks/                   # React hooks, including admin-role checks
+│   ├── integrations/supabase/   # Supabase client and generated database types
+│   ├── pages/                   # App and admin pages
+│   ├── services/                # Face-detection and person re-ID helpers
+│   ├── types/                   # Shared TypeScript types
+│   ├── App.tsx                  # Client-side routes
+│   └── main.tsx                 # Frontend entry point
+├── supabase/
+│   ├── functions/
+│   │   ├── processFootage/      # Footage-processing Edge Function and pipeline
+│   │   └── receiveReIdResults/  # External re-ID result ingestion function
+│   ├── migrations/              # PostgreSQL tables, policies, and storage setup
+│   └── config.toml              # Supabase project and function settings
+├── package.json
+├── package-lock.json
+└── vite.config.ts
 ```
 
 ## Installation
 
-1. **Clone the repository** and navigate to the backend directory:
+1. **Clone the repository** and enter the project directory:
 
-	```sh
-	git clone <repository-url>
-	cd findtogether-app/backend
-	```
+   ```sh
+   git clone https://github.com/AarDew/FindTogether.git
+   cd FindTogether
+   ```
 
-2. **Install dependencies:**
+2. **Install frontend dependencies:**
 
-	```sh
-	npm install
-	```
+   ```sh
+   npm install
+   ```
 
-3. **Configure environment variables:**
+3. **Configure Supabase.** The frontend Supabase URL and publishable (anon) key are currently set in `src/integrations/supabase/client.ts`. To use a different Supabase project, update those client settings, then link the Supabase CLI to your project and apply the SQL migrations:
 
-	```sh
-	cp env.example .env
-	```
+   ```sh
+   npx supabase login
+   npx supabase link --project-ref <your-project-ref>
+   npx supabase db push
+   ```
 
-	Set the values in `.env` for your environment:
+   The migrations create the app tables, RLS policies, storage buckets, and Realtime configuration. Do not put a Supabase service-role key in frontend code.
 
-	```dotenv
-	PORT=5000
-	NODE_ENV=development
-	MONGODB_URI=mongodb://localhost:27017/findtogether
-	JWT_SECRET=your-super-secret-jwt-key
-	JWT_EXPIRE=30d
-	FRONTEND_URL=http://localhost:3000
-	INNGEST_EVENT_KEY=your-inngest-event-key
-	INNGEST_SIGNING_KEY=your-inngest-signing-key
-	INNGEST_DEV_SERVER_URL=http://localhost:8288
-	```
+4. **Configure Edge Function secrets** in Supabase for the functions that need database access. In particular, `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are read by the Edge Functions; keep the service-role key server-side only.
 
-4. **Start MongoDB** locally or configure a MongoDB Atlas connection.
+5. **Start the frontend development server:**
 
-5. **Run the server:**
+   ```sh
+   npm run dev
+   ```
 
-	```sh
-	# Development mode
-	npm run dev
-
-	# Production mode
-	npm start
-	```
+   Vite serves the app at [http://localhost:8080](http://localhost:8080) by default.
 
 ## API Endpoints
 
+The application has client-side routes rather than an Express REST API. Data operations are made through the Supabase client and its policies.
+
 ### Authentication
 
-| Method | Endpoint | Description | Access |
-|---|---|---|---|
-| `POST` | `/api/auth/register` | Register a new user | Public |
-| `POST` | `/api/auth/login` | Log in a user | Public |
-| `GET` | `/api/auth/me` | Get the current user | Protected |
-| `PUT` | `/api/auth/updatedetails` | Update user details | Protected |
-| `PUT` | `/api/auth/updatepassword` | Update password | Protected |
-| `POST` | `/api/auth/logout` | Log out | Protected |
+| Route | Description |
+|---|---|
+| `/login` | Sign in with Supabase Auth |
+| `/register` | Create an account with Supabase Auth |
+| `/dashboard` | View the signed-in user's cases and footage uploads |
 
 ### Users
 
-| Method | Endpoint | Description | Access |
-|---|---|---|---|
-| `GET` | `/api/users` | Get all users | Admin/Moderator |
-| `GET` | `/api/users/:id` | Get a user | Admin/Moderator |
-| `POST` | `/api/users` | Create a user | Admin |
-| `PUT` | `/api/users/:id` | Update a user | Admin |
-| `DELETE` | `/api/users/:id` | Delete a user | Admin |
-| `GET` | `/api/users/stats` | Get user statistics | Admin |
+There is no standalone user CRUD API. Supabase Auth manages accounts, and the `user_roles` table plus the `has_role` database function represent `user`, `moderator`, and `admin` roles.
 
 ### Sightings
 
-| Method | Endpoint | Description | Access |
-|---|---|---|---|
-| `GET` | `/api/sightings` | Get all sightings | Public |
-| `GET` | `/api/sightings/:id` | Get a sighting | Public |
-| `POST` | `/api/sightings` | Create a sighting | Protected |
-| `PUT` | `/api/sightings/:id` | Update a sighting | Protected |
-| `DELETE` | `/api/sightings/:id` | Delete a sighting | Protected |
+| Route | Description |
+|---|---|
+| `/report-sighting` | Submit a sighting to the Supabase `sightings` table |
+
+The current code does not implement geospatial sighting searches.
 
 ### Cases
 
-| Method | Endpoint | Description | Access |
-|---|---|---|---|
-| `GET` | `/api/cases` | Get all cases | Protected |
-| `GET` | `/api/cases/:id` | Get a case | Protected |
-| `POST` | `/api/cases` | Create a case | Protected |
-| `PUT` | `/api/cases/:id` | Update a case | Protected |
-| `DELETE` | `/api/cases/:id` | Delete a case | Admin |
-| `POST` | `/api/cases/:id/notes` | Add a note to a case | Protected |
-| `GET` | `/api/cases/stats` | Get case statistics | Admin/Moderator |
-
-### Inngest
-
-| Endpoint | Description |
+| Route | Description |
 |---|---|
-| `/inngest` | Inngest development server and webhook endpoint |
+| `/` | Browse active missing-person cases |
+| `/submit-case` | Submit a missing-person case |
+| `/upload-footage` | Upload video footage for a case |
+| `/admin/matches` | Review match records |
+| `/admin/footage` | Review and manage footage uploads |
+| `/admin/ai-analysis` | Review external person re-identification results |
+| `/legal-help` | View legal-help information |
 
-## Background Jobs with Inngest
+### Supabase Edge Functions
 
-The backend uses Inngest for background jobs and scheduled tasks.
+| Function | Endpoint suffix | Purpose |
+|---|---|---|
+| `processFootage` | `/functions/v1/processFootage` | Accepts a `video_url` and `case_id` and attempts to create match records |
+| `receiveReIdResults` | `/functions/v1/receiveReIdResults` | Accepts results from an external person re-identification process and stores the result and top matches |
+
+## Background Jobs with Supabase Edge Functions
+
+The repository uses Supabase Edge Functions for server-side processing. It does not use Inngest.
 
 ### Available Functions
 
-1. **Email Notifications** (`send-email-notification`): Sends event-based notifications, including welcome emails, sighting confirmations, and case updates.
-2. **Sighting Processing** (`process-new-sighting`): Checks new sightings for nearby similar reports, can automatically create cases when multiple sightings are detected, and sends alerts for high-priority sightings.
-3. **Data Cleanup** (`cleanup-old-data`): Removes old resolved cases and sightings as part of scheduled maintenance.
+1. **Footage processing** (`processFootage`): The current Edge Function contains placeholder frame extraction and mock model inference; it should not be treated as production face recognition.
+2. **Re-identification result intake** (`receiveReIdResults`): Stores submitted analysis summaries and up to ten ranked matches. The external Python/GPU processing service that sends these results is not included here.
+3. **Admin footage action**: The current admin footage page generates simulated match rows; it does not invoke a production AI processing pipeline.
 
 ### Usage Examples
 
-```js
-// Send a welcome email
-const { sendWelcomeEmail } = require('./utils/inngest');
-await sendWelcomeEmail(user);
+1. A signed-in user uploads a video to the Supabase `footage` Storage bucket and creates a `footage_uploads` record.
+2. An admin reviews footage in the admin UI. The current UI's processing action is a simulation.
+3. For external re-identification, a separate Python service can submit its results to `receiveReIdResults`; the function stores them in `reid_results` and `reid_matches`.
 
-// Process a new sighting
-const { processSighting } = require('./utils/inngest');
-await processSighting({ sightingId, userId });
+### Supabase Development
 
-// Schedule cleanup
-const { scheduleCleanup } = require('./utils/inngest');
-await scheduleCleanup({ dataType: 'resolved-cases', daysOld: 30 });
-```
-
-### Inngest Development
-
-1. Start the Inngest development server:
-
-	```sh
-	npx inngest-cli@latest dev
-	```
-
-2. Open the dashboard at [http://localhost:8288](http://localhost:8288/) to monitor events and function executions.
-3. Review function logs and execution details in the dashboard.
+Install the [Supabase CLI](https://supabase.com/docs/guides/cli), then use it to start a local Supabase stack, apply migrations, and serve or deploy the Edge Functions. The Supabase dashboard can be used to inspect database, storage, authentication, and function logs. Edge Function deployment is separate from building the Vite frontend.
 
 ## Database Models
 
 ### User
 
-- Basic information: name, email, and password
-- Role-based access: user, moderator, and admin
-- Profile management
+- Accounts are managed by Supabase Auth rather than a custom user table.
+- `user_roles` stores application roles (`user`, `moderator`, or `admin`).
+- The `has_role` database function is used by the frontend to check for the admin role.
 
 ### Sighting
 
-- Location data with geospatial indexing
-- Image and video attachments
-- Voting and reporting system
-- Status tracking
+- `sightings` stores the missing-person name, sighting location and date, description, reporter contact details, optional photo URL, and status.
+- Sighting photos use the Supabase Storage `sightings` bucket.
 
 ### Case
 
-- Investigation case management
-- Evidence tracking
-- Witness and suspect information
-- Notes and comments
+- `cases` stores missing-person details, last-seen information, contact details, optional description/features and photo URL, status, and the submitting user's ID.
+- Case photos and footage are uploaded to Supabase Storage.
+- `footage_uploads` tracks video URLs, case/user IDs, processing status, and timestamps.
+- `matches` stores potential match confidence, timestamp, review status, and comments.
+- `face_embeddings` stores case-associated embeddings.
+- `reid_results` and `reid_matches` store summaries and ranked matches returned by the external re-identification pipeline.
 
 ## Security Features
 
-- **JWT authentication** for token-based sessions
-- **Password hashing** with bcryptjs
-- **Rate limiting** to help prevent abuse
-- **CORS** configuration for cross-origin requests
-- **Helmet** security headers
-- **Input validation** for incoming requests
-- **Centralized error handling** for consistent error responses
+- **Supabase Auth** provides account registration, login, and persisted browser sessions.
+- **Row Level Security** is enabled on the application tables, with access policies defined in the migrations.
+- **Role checks** use the `has_role` database function and `user_roles` table.
+- **Publishable key**: The key in the frontend client is intended to be public; access must be enforced by RLS. Never expose a service-role key in browser code.
+- **Production review required**: The current config disables JWT verification for both Edge Functions, some Storage policies allow public uploads/reads, and the login UI contains a client-side admin-key check. Review and secure these paths before production use; client-side checks are not authorization boundaries.
 
 ## Development
 
 ### Scripts
 
-- `npm run dev` — Start the development server with nodemon
-- `npm start` — Start the production server
-- `npm test` — Run tests
+- `npm run dev` — Start the Vite development server
+- `npm run build` — Build the production frontend into `dist/`
+- `npm run build:dev` — Build using Vite's development mode
+- `npm run lint` — Run ESLint
+- `npm run preview` — Preview the built frontend locally
 
 ### Environment Variables
 
-| Variable | Purpose |
-|---|---|
-| `PORT` | Server port (default: `5000`) |
-| `NODE_ENV` | Runtime environment (`development` or `production`) |
-| `MONGODB_URI` | MongoDB connection string |
-| `JWT_SECRET` | JWT signing secret |
-| `JWT_EXPIRE` | JWT expiration duration |
-| `FRONTEND_URL` | Frontend origin allowed by CORS |
-| `INNGEST_EVENT_KEY` | Inngest event key |
-| `INNGEST_SIGNING_KEY` | Inngest signing key |
-| `INNGEST_DEV_SERVER_URL` | Inngest development server URL |
+The Vite frontend currently reads its Supabase URL and publishable key from `src/integrations/supabase/client.ts`; it does not currently read frontend `.env` variables.
+
+| Variable | Used by | Purpose |
+|---|---|---|
+| `SUPABASE_URL` | Supabase Edge Functions | Supabase project URL; provided/configured in the Edge Function runtime |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Edge Functions | Server-side database access; store as a secret and never expose in the frontend |
 
 ## Deployment
 
-1. Configure production environment variables.
-2. Run the application with PM2 or a similar process manager.
-3. Set up MongoDB Atlas or a self-hosted MongoDB instance.
-4. Configure a reverse proxy such as nginx.
-5. Set up SSL certificates.
-6. Configure Inngest for production.
+1. Run `npm run build` and deploy the generated `dist/` directory to a static web host.
+2. Configure the host to serve the SPA entry point for client-side routes.
+3. Configure the Supabase project, authentication redirect URLs, database migrations, Storage buckets, and RLS policies.
+4. Set required Edge Function secrets and deploy `processFootage` and `receiveReIdResults` separately.
+5. Provide and secure an external processing service if real person re-identification is required. The included processing paths contain mock/simulated behavior.
 
 ## Contributing
 
